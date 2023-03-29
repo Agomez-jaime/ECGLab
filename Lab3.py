@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import scipy.signal as sig
 import struct as st
 import os
+from scipy.interpolate import interp1d
+import scipy.integrate as int
 from Functions.f_TRC_Reader import *
 from Functions.f_Graphing import *
 from Functions.f_SignalProcFuncLibs import *
@@ -43,7 +45,7 @@ for name in file_names:
 
     v_TimeArray = np.arange(0, np.size(v_DataFilt)) / d_SampleRate  # Time values
     '''
-    v_TimeArray, v_DataFilt, m_Data, d_SampleRate = f_preprocessing(str_ReadName)
+    v_TimeArray, v_DataFilt, m_Data, d_SampleRate = f_preprocessing(str_ReadName, [1, 59.5], [0.95, 60])
     
     str_MyRed = '#7B241C'
     str_MyBlue = '#0C649E'
@@ -105,21 +107,22 @@ for name in file_names:
     ax[1].set_ylabel("Freq (Hz)", fontsize=15)
     ax[1].set_xlim([v_TimeArray[0], v_TimeArray[-1]])
     fig.colorbar(immat, ax=ax[1])
-
+"""
 #Punto 3
 
+file_names = ["001N1_ECG"]
 for name in file_names:
     str_DataPath = 'Data/OutData/'  # path file where the data is stored
     str_FileName = name + 'Data.mat'  # Name of the File
     
     str_MyRed = '#7B241C'
     str_MyBlue = '#0C649E'
-    
-    '''
+
     v_allData = sio.loadmat(str_DataPath + str_FileName)  # Load .mat data
     v_ECGSig = np.double(v_allData['m_Data'][0])
     d_SampleRate = v_allData['s_Freq']
-    
+
+    '''
     v_TimeArray = np.arange(np.size(v_ECGSig)) / d_SampleRate  # Time values
     v_TimeArray = v_TimeArray[0]
     
@@ -214,14 +217,14 @@ for name in file_names:
     ax[1].set_ylabel('R-R Time (Seconds)')
     ax[1].set_xlabel('Time (Seconds)')
     
-    sio.savemat(str_DataPath + 'tachogram.mat', mdict={'v_Taco': v_Taco,
+    sio.savemat(str_DataPath + 'tachogram' + str(name)+ '.mat', mdict={'v_Taco': v_Taco,
                                               'v_Time_Taco': v_Time_Taco})
-
+"""
 #Punto 4 y 5
-
+file_names = ["001N1_ECG"]
 for name in file_names:
     str_DataPath = 'Data/OutData/'  # path file where the data is stored
-    str_FileName = 'tachogram.mat'  # Name of the File
+    str_FileName = 'tachogram' + str(name)+ '.mat' # Name of the File
     
     str_MyRed = '#7B241C'
     
@@ -256,16 +259,16 @@ for name in file_names:
     
     v_TimeArray = np.arange(len(v_PNN50))*d_stepSec
     '''
-    v_TimeArray, v_MEANNN, v_STDNN, v_NN50, v_PNN50, v_Taco, v_Time_Taco = f_stats(str_DataPath, str_FileName)
+    v_TimeArray, v_MEANNN, v_STDNN, v_NN50, v_PNN50, v_Taco_stats, v_Time_Taco_stats = f_stats(str_DataPath, str_FileName)
     
     fig, ax = plt.subplots(5,1,sharex=True)
     
     fig.suptitle('HRV stats '+name)
-    ax[0].plot(v_TimeArray, v_MEANNN, linewidth=2, color=str_MyRed, label='RawData')
-    ax[1].plot(v_TimeArray, v_STDNN, linewidth=2, color=str_MyRed, label='Derivative')
-    ax[2].plot(v_TimeArray, v_NN50, linewidth=2, color=str_MyRed, label='Square')
-    ax[3].plot(v_TimeArray, v_PNN50, linewidth=2, color=str_MyRed, label='Square')
-    ax[4].plot(v_Time_Taco, v_Taco, linewidth=2, color=str_MyRed, label='Square')
+    ax[0].plot(v_TimeArray_stats, v_MEANNN, linewidth=2, color=str_MyRed, label='RawData')
+    ax[1].plot(v_TimeArray_stats, v_STDNN, linewidth=2, color=str_MyRed, label='Derivative')
+    ax[2].plot(v_TimeArray_stats, v_NN50, linewidth=2, color=str_MyRed, label='Square')
+    ax[3].plot(v_TimeArray_stats, v_PNN50, linewidth=2, color=str_MyRed, label='Square')
+    ax[4].plot(v_Time_Taco_stats, v_Taco_stats, linewidth=2, color=str_MyRed, label='Square')
     
     ax[0].set_ylabel('Mean R-R (Sec)')
     ax[1].set_ylabel('Std R-R (Sec)')
@@ -280,10 +283,13 @@ for name in file_names:
     ax[4].grid(linewidth=0.65, linestyle=':', which='both', color='k')
     ax[4].set_xlabel('Time (Seconds)')
     plt.show()
-"""
-#Punto 6
-file_names = ["001N1_ECG"]
 
+
+#Punto 6
+
+str_DataPath = 'Data/ECG/' #path file where the data is stored
+str_OutPath = 'Data/OutData/'   #path file where the data will be stored
+file_names = ["001N1_ECG"]
 for name in file_names:
     str_ReadName = str_DataPath + name + '.mat' #Name of the file
     str_SaveName = str_OutPath + name +'Data' #Nome of teh new file
@@ -296,34 +302,96 @@ for name in file_names:
     hyp = ecg_data["v_HypCode"] #time:29730, len: 992 time y code
     m_Data = ecg_data["v_ECGSig"][0] #len:3699976
     sts_sleep = HypnogramAverage(m_Data, hyp)
-
     mean, std, nn, pnn = [], [], [], []
-
-    for i in range(8):
+    for i in range(6): #para 8 hay que bajar los coeficientes del filtro para que pase el padlen
+        #print(i, [sts_sleep[i]])
+        d_SampleRate = int(d_SampleRate)
         sio.savemat(str_DataPath + 'sleep_states' + str(i) + '.mat', mdict={'v_ECGSig': [sts_sleep[i]],
                                                                             's_FsHz': [[d_SampleRate]]})
 
         #Filtrado
         str_ReadName = str_DataPath + 'sleep_states' + str(i) + '.mat' # Name of the file
         str_SaveName = str_OutPath +  'sleep_states' + str(i) + 'Data'  # Nome of teh new file
-        v_TimeArray, v_DataFilt, m_Data, d_SampleRate = f_preprocessing(str_ReadName)
-        sio.savemat(str_SaveName + '.mat', mdict={'m_Data': v_DataFilt,
-                                                  's_Freq': d_SampleRate})
-        '''
+        v_TimeArray, v_DataFilt, m_Data, d_SampleRate = f_preprocessing(str_ReadName, [1, 59.5], [0.95, 60])
+        sio.savemat(str_SaveName + '.mat', mdict={'m_Data': [v_DataFilt],
+                                                  's_Freq': np.array([[d_SampleRate]])})
+        d_SampleRate = np.array([[d_SampleRate]])
         #RR y Tacogram
         str_DataPath = 'Data/OutData/'  # path file where the data is stored
         str_FileName = 'sleep_states' + str(i) + 'Data.mat'  # Name of the File
         v_TimeArray, v_ECGSig, v_ECGFiltDiff, v_ECGFiltDiffSqrt, v_ECGFiltDiffSqrtSum = f_RR(str_DataPath, str_FileName)
-        v_TimeArray, v_ECGSig, v_PeaksInd, v_Time_Taco, v_Taco = f_taco(v_ECGFiltDiffSqrtSum, d_SampleRate, v_ECGSig,
+        v_TimeArray, v_ECGSig, v_PeaksInd, v_Time_Taco_state, v_Taco_state = f_taco(v_ECGFiltDiffSqrtSum, d_SampleRate, v_ECGSig,
                                                                         v_TimeArray)
-        sio.savemat(str_DataPath + 'tachogram' + str(i) + '.mat', mdict={'v_Taco': v_Taco,
-                                                           'v_Time_Taco': v_Time_Taco})
+        sio.savemat(str_DataPath + 'tachogram' + str(i) + '.mat', mdict={'v_Taco': list([v_Taco_state]),
+                                                           'v_Time_Taco': list([v_Time_Taco_state])})
 
         #Stats
         str_DataPath = 'Data/OutData/'  # path file where the data is stored
         str_FileName = 'tachogram' + str(i) + '.mat'  # Name of the File
-        v_TimeArray, v_MEANNN, v_STDNN, v_NN50, v_PNN50, v_Taco, v_Time_Taco = f_stats(str_DataPath, str_FileName)
+        v_TimeArray, v_MEANNN, v_STDNN, v_NN50, v_PNN50, v_Taco_state, v_Time_Taco_state = f_stats(str_DataPath, str_FileName)
 
+    print(v_MEANNN, v_STDNN, v_NN50, v_PNN50) #[1.1744999999999999] [0.3205397791226543] [13] [81.25]
+"""
+#Punto 7
+file_names = ["001N1_ECG"]
+for name in file_names:
+    str_DataPath = 'Data/OutData/'  # path file where the data is stored
+    str_FileName = 'tachogram' + str(name) + '.mat'  # Name of the File
 
-'''
+    v_allData = sio.loadmat(str_DataPath + str_FileName)  # Load .mat data
+    v_Taco = np.double(v_allData['v_Taco'][0])
+    v_Time_Taco = np.double(v_allData['v_Time_Taco'][0])
+    print(v_Taco, v_Time_Taco)
 
+    interp_func = interp1d(v_Time_Taco, v_Taco)
+
+    time = np.arange(v_Time_Taco[0], v_Time_Taco[-1], 0.1)
+
+    new_taco = interp1d(time)
+
+    low_bound = 0
+    up_bound = 30
+
+    lf = []
+    hf = []
+    time = []
+    while 1:
+        window_HFO = new_taco[int(low_bound):int(up_bound)]
+
+        # Análisis espectral de potencia
+        l = len(window_HFO)
+        v_freq, v_psd = sig.welch(window_HFO, d_SampleRate, nfft=l)
+        lf_val = int.quad(v_psd, 0.04, 0.15)
+        hf_val = int.quad(v_psd, 0.15, 0.4)
+        lf.append(lf_val)
+        hf.append(hf_val)
+        time.append(int(low_bound))
+
+        low_bound += 30
+        up_bound += 30
+
+        if up_bound > len(new_taco):
+            up_bound = len(new_taco)
+            window_HFO = new_taco[int(low_bound):int(up_bound)]
+
+            # Análisis espectral de potencia
+            l = len(window_HFO)
+            v_freq, v_psd = sig.welch(window_HFO, d_SampleRate, nfft=l)
+            lf_val = int.quad(v_psd, 0.04, 0.15)
+            hf_val = int.quad(v_psd, 0.15, 0.4)
+            lf.append(lf_val)
+            hf.append(hf_val)
+
+            break
+    plt.figure()
+    plt.plot(time, lf)
+    plt.plot(time, hf)
+    plt.title(name)
+    plt.show()
+
+av_lf = np.average(lf)
+av_hf = np.average(hf)
+
+plt.figure()
+plt.hist([av_lf, av_hf, av_lf/av_hf], bins = 3)
+plt.show()
